@@ -10,7 +10,7 @@ Three modules:
 - **Single column** (`index.html`): one column from a flat pattern, with flutes, bands, a capital, and so on.
 - **Grid system** (`grid.html`): the rain-water buffer tank from figs. 1–8, with bottle-shaped columns 17 and necks 19, base tubes 21 linking the feet, an optional perimeter wall of cylinders 20, and soffit panels 27 that sag under the top slab 3. Each part type is simulated once and repeated across the layout. Contact between neighbouring parts is not modelled yet.
 - **Shape catalogue** (`catalogue.html`): one simulated recipe per production family, each with its cut pattern, production steps and a measured readout:
-  - A: pillow block, quilted slab, ribbed slab whose ribs are deepest at mid-span, perforated screen
+  - A: pillow block, quilted slab, ribbed slab whose ribs are deepest at mid-span, perforated screen, taped truss beam (from the film prototype)
   - B: twisted fluted column
   - C: arch rib made from a darted tube
   - E: Y-branch tree column

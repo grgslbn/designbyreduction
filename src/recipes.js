@@ -196,6 +196,107 @@ recipe({
   },
 });
 
+// A5 -------------------------------------------------------------------------
+// Taped truss beam: after the user's film prototype (photos). Two sheets are
+// taped together everywhere except along channels that form a Warren truss:
+// top chord, bottom chord, end posts and zig-zag diagonals.
+const SUPPORT = ['flat on the table', 'on edge between end boards', 'held at one end (as in the photos)'];
+recipe({
+  id: 'truss', family: 'A', name: 'Taped truss beam (Warren)',
+  summary: 'Two sheets taped together everywhere except along open channels that form a Warren truss: chords, end posts and diagonals. Inflating a channel makes the sheet narrower across it, so taped-flat triangles wrinkle and the beam warps, as in the film prototype. Glue the triangles and cut them out to get an open lattice girder.',
+  params: [
+    ['L', 'Length', 1, 4, 0.05, 2.0, m],
+    ['D', 'Depth (flat sheet)', 0.3, 1.2, 0.01, 0.55, m],
+    ['bays', 'Bays', 2, 8, 1, 4, int],
+    ['chord', 'Chord channel width (flat)', 0.06, 0.3, 0.01, 0.15, m],
+    ['diag', 'Diagonal channel width (flat)', 0.05, 0.3, 0.01, 0.12, m],
+    ['cut', 'Triangles', 0, 1, 1, 0, (v) => (v ? 'glued and cut out' : 'taped flat')],
+    ['fill', 'Filled with', 0, 1, 1, 0, (v) => (v ? 'concrete' : 'air (prototype)')],
+    ['support', 'Support', 0, 2, 1, 2, (v) => SUPPORT[v]],
+  ],
+  steps: ['Cut 2 identical rectangles (length × depth).', 'Draw the truss: top and bottom chord bands along the long edges, end posts at the short edges, and zig-zag diagonal bands between them.', 'Tape or glue the two sheets together over every area outside the bands (the triangles). Optionally cut out the middle of each triangle, keeping a glued rim.', 'Seal the perimeter, leaving a filling sleeve at one end, and fill.'],
+  build(p) {
+    const nu = Math.round(p.L / 0.02) + 1, nv = Math.round(p.D / 0.02) + 1;
+    const flat = (i, j) => [(i / (nu - 1) - 0.5) * p.L, (j / (nv - 1) - 0.5) * p.D];
+    // channel centrelines (flat coordinates)
+    const zt = p.D / 2 - p.chord / 2, zb = -zt, xe = p.L / 2 - p.chord / 2;
+    const segs = [[[-p.L / 2, zt], [p.L / 2, zt], p.chord], [[-p.L / 2, zb], [p.L / 2, zb], p.chord],
+      [[-xe, zb], [-xe, zt], p.chord], [[xe, zb], [xe, zt], p.chord]];
+    const bay = (2 * xe) / p.bays;
+    for (let k = 0; k < p.bays; k++) {
+      const x0 = -xe + k * bay, x1 = x0 + bay / 2, x2 = x0 + bay;
+      segs.push([[x0, zb], [x1, zt], p.diag]);
+      segs.push([[x1, zt], [x2, zb], p.diag]);
+    }
+    const dseg = (q, a, b) => {
+      const vx = b[0] - a[0], vz = b[1] - a[1], t = Math.max(0, Math.min(1, ((q[0] - a[0]) * vx + (q[1] - a[1]) * vz) / (vx * vx + vz * vz)));
+      return Math.hypot(q[0] - a[0] - t * vx, q[1] - a[1] - t * vz);
+    };
+    const clearance = (q) => Math.min(...segs.map(([a, b, w]) => dseg(q, a, b) - w / 2));
+    const glued = (i, j) => clearance(flat(i, j)) > 0;
+    const tape = 0.04; // glued rim kept around a cut-out
+    const holeFix = p.cut ? (i, j) => clearance([((i + 0.5) / (nu - 1) - 0.5) * p.L, ((j + 0.5) / (nv - 1) - 0.5) * p.D]) > tape : null;
+
+    // orientation: lying flat (normal = y) or standing on edge (normal = z)
+    const standing = p.support > 0, lift = p.support === 2 ? 0.6 : 0;
+    const W = (f, n) => standing ? [f[0], f[1] + p.D / 2 + 0.002 + lift, n] : [f[0], 0.002 + n, f[1]];
+    const nrm = standing ? [0, 0, 1] : [0, 1, 0];
+    const pin = p.support === 1 ? (i) => i === 0 || i === nu - 1 : p.support === 2 ? (i, j) => i <= 1 && Math.abs(j - (nv - 1) / 2) < nv * 0.15 : null;
+    const layer = (s) => ({
+      name: s > 0 ? 'sheet A' : 'sheet B', nu, nv, flat, hole: holeFix,
+      // a real sheet is never perfectly flat: a few mm of waviness lets buckling start
+      init: (i, j) => { const f = flat(i, j); const imp = 0.006 * Math.sin((2.3 * Math.PI * f[0]) / p.L + 0.7) * Math.cos((1.1 * Math.PI * f[1]) / p.D); return W(f, imp + s * 0.002 * (glued(i, j) ? 0 : 1 + 0.3 * Math.sin(i * 1.1 + j))); },
+      outward: () => nrm.map((v) => v * s),
+      pin: pin ? (i, j) => pin(i, j) : null,
+    });
+    const seams = [];
+    for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
+      const edge = i === 0 || j === 0 || i === nu - 1 || j === nv - 1;
+      if (edge || glued(i, j)) seams.push([0, i, j, 1, i, j]);
+    }
+    const top = standing ? p.D + lift + 0.3 : 0.8;
+    const head = p.fill ? (y) => top - y : () => 0.3; // air: uniform pressure
+    const fab = new Fabric({ pieces: [layer(1), layer(-1)], seams, head, ground: p.support !== 2 });
+    this._frame = { standing, nu, nv };
+    // cut pattern marks: channel outlines as stitch/tape lines
+    const marks = segs.map(([a, b, w]) => {
+      const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz), nx = (-dz / l) * w / 2, nz = (dx / l) * w / 2;
+      return { type: 'line', pts: [[a[0] + nx, a[1] + nz], [b[0] + nx, b[1] + nz], [b[0] - nx, b[1] - nz], [a[0] - nx, a[1] - nz], [a[0] + nx, a[1] + nz]] };
+    });
+    return { fab, marks: [marks, marks] };
+  },
+  readout(fab, p) {
+    const { standing } = this._frame, P = fab.pos;
+    const ax = 0, an = standing ? 2 : 1, av = standing ? 1 : 2; // along, normal, in-plane vertical
+    let xmin = Infinity, xmax = -Infinity, nmin = Infinity, nmax = -Infinity;
+    for (let i = 0; i < fab.nCloth; i++) {
+      xmin = Math.min(xmin, P[i * 3 + ax]); xmax = Math.max(xmax, P[i * 3 + ax]);
+      nmin = Math.min(nmin, P[i * 3 + an]); nmax = Math.max(nmax, P[i * 3 + an]);
+    }
+    // per-piece thickness: max separation between the two sheets at the same flat point
+    const pc = fab.pieces[0];
+    let chordT = 0, bulb = 0;
+    const sep = (i, j) => { const a = fab.gid(0, i, j), b = fab.gid(1, i, j); return Math.hypot(P[a * 3] - P[b * 3], P[a * 3 + 1] - P[b * 3 + 1], P[a * 3 + 2] - P[b * 3 + 2]); };
+    const jt = Math.round((1 - p.chord / 2 / p.D) * (pc.nv - 1));
+    for (let i = 0; i < pc.nu; i++) chordT = Math.max(chordT, sep(i, jt));
+    for (let j = 0; j < pc.nv; j++) for (let i = 0; i < pc.nu; i++) bulb = Math.max(bulb, sep(i, j));
+    // warping: spread of the mid-surface (halfway between the two sheets) along the normal
+    let wmin = Infinity, wmax = -Infinity;
+    for (let j = 0; j < pc.nv; j++) for (let i = 0; i < pc.nu; i++) {
+      const a = fab.gid(0, i, j), b = fab.gid(1, i, j), mid = (P[a * 3 + an] + P[b * 3 + an]) / 2;
+      wmin = Math.min(wmin, mid); wmax = Math.max(wmax, mid);
+    }
+    const warp = wmax - wmin;
+    return [
+      ['Chord tube (inflated)', cm(chordT)],
+      ['Thickest point (node bulb)', cm(bulb)],
+      ['Length after filling', `${m(xmax - xmin)} (−${((1 - (xmax - xmin) / p.L) * 100).toFixed(1)} %)`],
+      ['Out-of-plane warp', cm(warp)],
+      ['Volume', `${(fab.volume() * 1000).toFixed(0)} L`],
+    ];
+  },
+});
+
 // H1 -------------------------------------------------------------------------
 recipe({
   id: 'board', view: { stand: 'panel' }, family: 'H', name: 'Wall panel on a board',
