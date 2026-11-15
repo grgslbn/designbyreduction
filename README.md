@@ -5,10 +5,17 @@ An interactive simulator for the formwork principle in Belgian patent **BE102481
 textile pattern that is cut, folded and stitched. Concrete pumped into it under pressure
 inflates it, and the hardened concrete keeps that shape as a structural element.
 
-Two modules:
+Three modules:
 
 - **Single column** (`index.html`): one column from a flat pattern, with flutes, bands, a capital, and so on.
 - **Grid system** (`grid.html`): the rain-water buffer tank from figs. 1–8, with bottle-shaped columns 17 and necks 19, base tubes 21 linking the feet, an optional perimeter wall of cylinders 20, and soffit panels 27 that sag under the top slab 3. Each part type is simulated once and repeated across the layout. Contact between neighbouring parts is not modelled yet.
+- **Shape catalogue** (`catalogue.html`): one simulated recipe per production family, each with its cut pattern, production steps and a measured readout:
+  - A: pillow block, quilted slab, ribbed slab whose ribs are deepest at mid-span, perforated screen
+  - B: twisted fluted column
+  - C: arch rib made from a darted tube
+  - E: Y-branch tree column
+  - F: beam with moment-shaped depth, hanging shell (inverted)
+  - H: wall panel on a casting board
 
 ## Run
 
@@ -51,6 +58,9 @@ about 3–4 % local strain at the boundaries, which is similar to real geotextil
 - `src/membrane.js`: generic tension-only membrane, with builders for vertical and horizontal tubes, sag panels and bottle profiles
 - `src/system.js`: grid system layout, volumes, cut list (`GridSystem`)
 - `src/grid-app.js`: UI for the grid page
+- `src/engine.js`: general production-based fabric engine. Pieces (cut) and seams (sew, stitch, tack, glue) are merged with union-find; it also handles holes (cut out), cords (tethers), pins (rings, rails, boards), and hydrostatic or draped-weight loads
+- `src/recipes.js`: catalogue recipes, cut pattern SVG
+- `src/catalogue-app.js`: UI for the catalogue
 - `src/app.js`: UI, three.js view, 2D figures, exports
 - `test/sim.test.js`: convergence and sanity checks for every preset family
 
@@ -60,3 +70,10 @@ about 3–4 % local strain at the boundaries, which is similar to real geotextil
 - Pump pressure on top of hydrostatic head, and a staged pour (concrete stiffening by height)
 - Inverse design: optimise the pattern so it matches a target profile
 - Other families from the patent: mushroom-head grids and slabs, vaults (fig. 30–33), water-buffer tanks
+
+## Findings from the catalogue
+
+- **Thickness follows width, but the ratio depends on the cell's proportions.** A long two-layer cell comes out at about 0.55 × its width (close to a round section). Square cells come out flatter.
+- **A panel cast on a board needs fullness.** If the back layer is held flat, a front layer cut to the same size cannot bulge at all. Cut the front larger (about 10–15 %) and ease it in at the stitch lines.
+- **Flanges inflate too.** In a ribbed slab, the wide channels between ribs swell unless they get their own extra stitch lines.
+- **Darted tube curvature** follows κ ≈ k / (2r(1 − k/2)), where k is the share of cloth taken out on the inner side and r the tube radius. The simulation agrees within a few %.

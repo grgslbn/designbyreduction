@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shape Catalogue — Design by Reduction</title>
+<link rel="stylesheet" href="./src/style.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <nav class="tabs"><a href="./">Single column</a><a href="./grid.html">Grid system (fig. 1–8)</a><a class="on" href="./catalogue.html">Shape catalogue</a></nav>
+    <h1>Shape catalogue</h1>
+    <p class="sub">Each recipe starts from flat cloth and uses only production steps: cut, sew, stitch, tack, glue and cut out, dart, tether, fold flat. The concrete pressure gives the shape.</p>
+
+    <h2>Recipes</h2>
+    <div class="recipes" id="recipes"></div>
+
+    <h2>Parameters</h2>
+    <div id="params"></div>
+
+    <div class="btns">
+      <button class="primary" id="pour">Pour again</button>
+      <button id="pause">Pause</button>
+    </div>
+  </aside>
+
+  <main>
+    <div id="view"></div>
+    <div id="hud"></div>
+    <div id="legend"><span id="lg-a"></span><div class="bar" id="lg-bar"></div><span id="lg-b"></span></div>
+  </main>
+
+  <aside class="right">
+    <h2 id="r-family"></h2>
+    <p id="r-summary" style="margin:0"></p>
+
+    <h2>Production steps</h2>
+    <ol class="steps" id="steps"></ol>
+
+    <h2>Result</h2>
+    <dl class="stats" id="stats"></dl>
+
+    <h2>Cut pattern</h2>
+    <div class="fig" id="pattern"></div>
+    <p class="note">Red dashed: sewing line (add seam allowance). Blue: stitch lines and tacks through both layers. Black: glue ring, then cut out. Red wedges: darts.</p>
+
+    <h2>Display</h2>
+    <select id="colour">
+      <option value="pressure">Load on the cloth</option>
+      <option value="concrete">Cured concrete</option>
+    </select>
+    <div class="check"><input type="checkbox" id="flip" checked><label for="flip">Show in use (turned over / stood up)</label></div>
+
+    <h2>Export</h2>
+    <div class="btns">
+      <button id="exp-svg">Cut pattern .svg</button>
+      <button id="exp-obj">Shape .obj</button>
+      <button id="exp-json">Params .json</button>
+    </div>
+  </aside>
+</div>
+<script type="module" src="./src/catalogue-app.js"></script>
+</body>
+</html>

@@ -45,3 +45,10 @@ main { position: relative; min-width: 0; }
 nav.tabs { display: flex; gap: 4px; margin: 0 0 12px; }
 nav.tabs a { color: var(--muted); text-decoration: none; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); }
 nav.tabs a.on { color: var(--ink); border-color: var(--accent); }
+.recipes { display: grid; gap: 4px; }
+.recipes button { text-align: left; display: grid; grid-template-columns: 22px 1fr; gap: 6px; align-items: baseline; }
+.recipes button b { color: var(--accent); }
+.recipes button.on { border-color: var(--accent); background: var(--panel); }
+ol.steps { margin: 0; padding-left: 18px; } ol.steps li { margin: 4px 0; }
+.ops { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.ops span { font-size: 11px; border: 1px solid var(--line); border-radius: 10px; padding: 1px 7px; color: var(--muted); }
