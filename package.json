@@ -1,1 +1,1 @@
-{"type":"module","name":"designbyreduction","private":true,"scripts":{"test":"node test/sim.test.js","start":"python3 -m http.server 8000"}}
+{"type":"module","name":"designbyreduction","private":true,"scripts":{"test":"node test/sim.test.js && node test/system.test.js","start":"python3 -m http.server 8000"}}

@@ -5,7 +5,10 @@ An interactive simulator for the formwork principle in Belgian patent **BE102481
 textile pattern that is cut, folded and stitched. Concrete pumped into it under pressure
 inflates it, and the hardened concrete keeps that shape as a structural element.
 
-This first module covers **columns**.
+Two modules:
+
+- **Single column** (`index.html`): one column from a flat pattern, with flutes, bands, a capital, and so on.
+- **Grid system** (`grid.html`): the rain-water buffer tank from figs. 1–8, with bottle-shaped columns 17 and necks 19, base tubes 21 linking the feet, an optional perimeter wall of cylinders 20, and soffit panels 27 that sag under the top slab 3. Each part type is simulated once and repeated across the layout. Contact between neighbouring parts is not modelled yet.
 
 ## Run
 
@@ -45,6 +48,9 @@ about 3–4 % local strain at the boundaries, which is similar to real geotextil
 ## Code layout
 
 - `src/sim.js`: physics core with no DOM (`ColumnSim`)
+- `src/membrane.js`: generic tension-only membrane, with builders for vertical and horizontal tubes, sag panels and bottle profiles
+- `src/system.js`: grid system layout, volumes, cut list (`GridSystem`)
+- `src/grid-app.js`: UI for the grid page
 - `src/app.js`: UI, three.js view, 2D figures, exports
 - `test/sim.test.js`: convergence and sanity checks for every preset family
 

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grid System — Design by Reduction</title>
+<link rel="stylesheet" href="./src/style.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <nav class="tabs"><a href="./">Single column</a><a class="on" href="./grid.html">Grid system (fig. 1–8)</a></nav>
+    <h1>Grid formwork system</h1>
+    <p class="sub">One foldable textile formwork: bottle columns on base tubes, optional perimeter wall, and soffit panels that carry the top slab. Rain-water buffer tank from the patent, figs. 1–8.</p>
+
+    <h2>Preset</h2>
+    <select id="preset"></select>
+
+    <h2>Layout</h2>
+    <div id="g-layout"></div>
+
+    <h2>Column 17 pattern</h2>
+    <div id="g-column"></div>
+
+    <h2>Base tubes 21 &amp; walls 20</h2>
+    <div id="g-base"></div>
+    <div class="check"><input type="checkbox" id="walls"><label for="walls">Perimeter wall of cylinders (fig. 1–4)</label></div>
+
+    <h2>Soffit panels 27 &amp; slab 3</h2>
+    <div class="check"><input type="checkbox" id="panels"><label for="panels">Panels between column necks (fig. 7)</label></div>
+    <div class="check"><input type="checkbox" id="slab"><label for="slab">Pour top slab on panels (fig. 8)</label></div>
+    <div id="g-slab"></div>
+
+    <h2>Pour</h2>
+    <div id="g-pour"></div>
+
+    <div class="btns">
+      <button class="primary" id="pour">Pour again</button>
+      <button id="pause">Pause</button>
+    </div>
+  </aside>
+
+  <main>
+    <div id="view"></div>
+    <div id="hud"></div>
+    <div id="legend"><span id="lg-a"></span><div class="bar" id="lg-bar"></div><span id="lg-b"></span></div>
+  </main>
+
+  <aside class="right">
+    <h2>Display</h2>
+    <select id="colour">
+      <option value="pressure">Hydrostatic pressure</option>
+      <option value="concrete">Cured concrete</option>
+    </select>
+    <div class="check"><input type="checkbox" id="showSlab" checked><label for="showSlab">Show slab volume</label></div>
+
+    <h2>Result</h2>
+    <dl class="stats" id="stats"></dl>
+
+    <h2>Cut list</h2>
+    <div class="fig" id="pattern"></div>
+    <p class="note">Sewing lines for each part type with how many of each. Columns, tubes and walls are sewn into tubes and stitched to each other at the feet.</p>
+
+    <h2>Model notes</h2>
+    <p class="note">Each part type is simulated once and repeated over the layout. Contact between neighbours (walls pressing on each other, tubes merging into feet) is not modelled yet. Columns, tubes and walls are filled in one pour through the necks. The slab is poured later and loads only the panels.</p>
+
+    <h2>Export</h2>
+    <div class="btns">
+      <button id="exp-svg">Cut list .svg</button>
+      <button id="exp-obj">Shape .obj</button>
+      <button id="exp-json">Params .json</button>
+    </div>
+  </aside>
+</div>
+<script type="module" src="./src/grid-app.js"></script>
+</body>
+</html>
