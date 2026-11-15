@@ -83,13 +83,25 @@ export class Fabric {
         }
       }
     }
+    // optional bending stiffness: two-apart links that resist compression too
+    // (weight is stored negative to mark them as two-sided)
+    for (const p of pieces) {
+      if (!p.bend) continue;
+      const fd = (i1, j1, i2, j2) => { const a = p.flat(i1, j1), b = p.flat(i2, j2); return Math.hypot(a[0] - b[0], a[1] - b[1]); };
+      const iMax = p.wrap ? p.nu : p.nu - 2;
+      for (let j = 0; j < p.nv; j++) for (let i = 0; i < p.nu; i++) {
+        const ok = (a, b, c, d, e, f) => !p.bendOk || (p.bendOk(a, b) && p.bendOk(c, d) && p.bendOk(e, f));
+        if (i < iMax && ok(i, j, i + 1, j, i + 2, j)) { const a = map[p.lid(i, j)], b = map[p.lid(i + 2, j)]; if (a !== b) cons.push(a, b, fd(i, j, i + 2, j), -p.bend); }
+        if (j < p.nv - 2 && ok(i, j, i, j + 1, i, j + 2)) { const a = map[p.lid(i, j)], b = map[p.lid(i, j + 2)]; if (a !== b) cons.push(a, b, fd(i, j, i, j + 2), -p.bend); }
+      }
+    }
     for (const c of cords) cons.push(c[0], c[1], c[2], 1);
     const m = cons.length / 4;
     this.cA = new Uint32Array(m); this.cB = new Uint32Array(m); this.cL = new Float32Array(m); this.cW = new Float32Array(m);
     for (let c = 0; c < m; c++) { this.cA[c] = cons[4 * c]; this.cB[c] = cons[4 * c + 1]; this.cL[c] = cons[4 * c + 2]; this.cW[c] = cons[4 * c + 3]; }
 
     // ---- triangles, oriented so that the load pushes along piece.outward
-    const tris = [];
+    const tris = [], regions = [];
     for (const p of pieces) {
       const iMax = p.wrap ? p.nu : p.nu - 1;
       const local = [];
@@ -97,6 +109,8 @@ export class Fabric {
         if (p.hole && p.hole(i, j)) continue;
         const a = map[p.lid(i, j)], b = map[p.lid(i + 1, j)], c = map[p.lid(i, j + 1)], d = map[p.lid(i + 1, j + 1)];
         local.push(a, c, b, b, c, d);
+        const r = p.region ? p.region(i, j) : 0;
+        regions.push(r, r);
       }
       // sign check on a sample triangle, against the piece's outward direction
       let sgn = 1;
@@ -117,6 +131,7 @@ export class Fabric {
       }
     }
     this.tris = new Uint32Array(tris);
+    this.triRegion = new Uint8Array(regions);
     this.iter = 0;
     this.residual = Infinity;
   }
@@ -125,7 +140,8 @@ export class Fabric {
     const { pos, prev, force, pinned, tris } = this;
     const N = this.n;
     let hNow = this.weight;
-    for (let i = 1; i < this.nCloth * 3; i += 3) hNow = Math.max(hNow, this.head(pos[i]));
+    for (let i = 1; i < this.nCloth * 3; i += 3) hNow = Math.max(hNow, this.head(pos[i], 0));
+    if (this.regionHeadMax) hNow = Math.max(hNow, this.regionHeadMax);
     const gain = 0.35 / Math.max(hNow, 0.2);
     const gw = (this.fabricWeight / RHO) * 40 * gain / 6 + (this.weight * gain) / 6;
     for (let s = 0; s < substeps; s++) {
@@ -137,7 +153,7 @@ export class Fabric {
         let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
         const wgt = Math.sqrt(nx * nx + ny * ny + nz * nz) * gw;
         force[a + 1] -= wgt; force[b + 1] -= wgt; force[c + 1] -= wgt;
-        const h = this.head((pos[a + 1] + pos[b + 1] + pos[c + 1]) / 3);
+        const h = this.head((pos[a + 1] + pos[b + 1] + pos[c + 1]) / 3, this.triRegion[t / 3]);
         if (h <= 0) continue;
         const f = (h * gain) / 6;
         nx *= f; ny *= f; nz *= f;
@@ -174,10 +190,11 @@ export class Fabric {
       const a = cA[c] * 3, b = cB[c] * 3;
       const dx = pos[b] - pos[a], dy = pos[b + 1] - pos[a + 1], dz = pos[b + 2] - pos[a + 2];
       const d = Math.sqrt(dx * dx + dy * dy + dz * dz), L = cL[c];
-      if (d <= L || d === 0) continue;
+      const two = cW[c] < 0;
+      if (d === 0 || (!two && d <= L)) continue;
       const wa = pinned[cA[c]] ? 0 : 1, wb = pinned[cB[c]] ? 0 : 1, ws = wa + wb;
       if (!ws) continue;
-      const k = ((d - L) / d) * cW[c] / ws;
+      const k = ((d - L) / d) * Math.abs(cW[c]) / ws;
       pos[a] += dx * k * wa; pos[a + 1] += dy * k * wa; pos[a + 2] += dz * k * wa;
       pos[b] -= dx * k * wb; pos[b + 1] -= dy * k * wb; pos[b + 2] -= dz * k * wb;
     }

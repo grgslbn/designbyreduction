@@ -19,6 +19,7 @@ const CONTROLS = {
   ],
   'g-pour': [
     ['standpipe', 'Pump head above top chords', 0, 6, 0.05, m],
+    ['airKPa', 'Cushion air pressure', 5, 100, 1, (v) => `${v} kPa`],
   ],
 };
 const inputs = {};
@@ -34,7 +35,7 @@ for (const [group, list] of Object.entries(CONTROLS)) {
     host.appendChild(row);
   }
 }
-for (const k of ['propped', 'anchored', 'heldEnds']) {
+for (const k of ['propped', 'anchored', 'heldEnds', 'cushions']) {
   const el = document.getElementById(k);
   inputs[k] = { el };
   el.addEventListener('change', () => { state[k] = el.checked; schedule(); });
@@ -173,6 +174,8 @@ function update(force = false) {
   if (s.spread > 0.05) f.push(`<p><b>The webs push apart</b> (+${(s.spread * 100).toFixed(0)} %). Tie the bottom chords together or peg them down.</p>`);
   if (s.shorten > 0.03) f.push(`<p><b>The deck shortens by ${(s.shorten * 100).toFixed(0)} %</b> as the channels inflate (about ${(s.shorten * state.length).toFixed(1)} m over ${state.length} m). Cut the sheet that much longer, or hold the ends.</p>`);
   if (state.heldEnds && s.diagTube < state.diag * 0.5) f.push(`<p><b>Held ends keep the diagonals flat</b> (${(s.diagTube * 100).toFixed(0)} cm instead of about ${(state.diag * 2 / Math.PI * 100).toFixed(0)} cm round). A channel needs to shorten its surroundings to inflate fully.</p>`);
+  if (state.cushions && s.diagTube < 0.04) f.push(`<p><b>The air cushions are squashing the concrete diagonals</b> (${(s.diagTube * 100).toFixed(0)} cm). The air pressure is higher than the concrete pressure. Lower it, or widen the taped band between cushion and channel.</p>`);
+  if (state.cushions && s.apex >= state.height * 0.9 && !state.propped) f.push('<p><b>The air cushions brace the V</b>: it stands without rails.</p>');
   if (!f.length) f.push('<p>Stable: the V holds its shape with these settings.</p>');
   document.getElementById('findings').innerHTML = f.join('');
   const done = deck.residual < 1e-5;

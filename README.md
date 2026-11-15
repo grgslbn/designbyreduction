@@ -16,6 +16,7 @@ Four modules:
   - E: Y-branch tree column
   - F: beam with moment-shaped depth, hanging shell (inverted)
   - H: wall panel on a casting board
+  - I (invented): hang, fill, flip funicular arch; spacer-fabric plank with graded depth; programmable curvature disc (experimental)
 - **V truss deck** (`deck.html`): one big double sheet taped with Warren truss webs and folded like a concertina along shared chords. Unfolded, the webs lean alternately, giving a space-truss deck (for example 8 × 20 × 1 m). One V module is simulated with symmetry planes standing in for its neighbours, then repeated over the footprint.
 
 ## Run
@@ -84,3 +85,4 @@ about 3–4 % local strain at the boundaries, which is similar to real geotextil
 - **A concrete-filled V cannot stand by itself during the pour.** At about 0.25 m of pump head the top chords slump to about 0.26 m (from 1 m). It stands at 0.82 m with 6 m of head, and at 0.98 m when the top chords hang from rails or cables. Wet concrete in a leaning bag needs a pressure at the top well above its own height.
 - **The webs push apart** by about 37 % unless the bottom chords are tied or pegged.
 - **Shortening against round diagonals.** Free ends let the deck shorten by about 17 % (about 3.4 m over 20 m), and the diagonals inflate fully. Held ends keep the length but leave the diagonals flat (6 cm instead of about 13 cm). Cut the sheet longer, or accept flatter diagonals.
+- **Air cushions as bracing.** Sealing the triangles as air cushions, two fluids in one sheet, helps the V stand without rails: apex 0.22 m with no air, 0.52 m at 30 kPa, 0.84 m at 60 kPa. Above the concrete pressure, though, the cushions squash the concrete diagonals flat (2 cm), so there is a pressure window to find.

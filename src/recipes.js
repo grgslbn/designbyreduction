@@ -602,6 +602,145 @@ recipe({
   },
 });
 
+// I1 -------------------------------------------------------------------------
+// Invented: hang, fill, flip. A tube hung from two points sags under the
+// concrete into a hanging-chain line; turned over after curing it becomes an
+// arch that works in pure compression.
+recipe({
+  id: 'hangarch', family: 'I', name: 'Hang, fill, flip: funicular arch', view: { flip: true },
+  summary: 'A plain tube hung from two points and filled from both ends. The concrete sags it into a hanging-chain line. Turned over after curing, that line becomes an arch in pure compression, with no darts and no falsework.',
+  params: [
+    ['span', 'Span between hangers', 1.5, 8, 0.1, 4, m],
+    ['L', 'Tube length', 1.6, 12, 0.1, 5.2, m],
+    ['C', 'Circumference', 0.3, 1.5, 0.01, 0.7, m],
+    ['standpipe', 'Standpipe above hangers', 0.1, 2, 0.05, 0.4, m],
+  ],
+  steps: ['Cut 1 rectangle (circumference × length).', 'Roll it up and sew the long seam. Fit a filling collar at each end.', 'Hang both ends from two posts at the chosen span.', 'Fill from both ends with standpipes. The tube sags into the hanging-chain line.', 'After curing, lift and turn it over: the arch stands in compression.'],
+  build(p) {
+    const nu = 28, nv = 80, r = p.C / TAU, H = Math.max(2.5, p.L);
+    const L = Math.max(p.L, p.span * 1.02);
+    // initial guess: parabola with the right arc length
+    const sag = Math.sqrt(Math.max(0, (3 * p.span * (L - p.span)) / 8));
+    const cl = (t) => { const x = (t - 0.5) * p.span; return [x, H - sag * (1 - (2 * x / p.span) ** 2)]; };
+    const tube = {
+      name: 'tube', nu, nv, wrap: true,
+      flat: (i, j) => [(i / nu) * p.C, (j / (nv - 1)) * L],
+      init: (i, j) => {
+        const t = j / (nv - 1), [x, y] = cl(t), [x2, y2] = cl(Math.min(1, t + 0.01)), [x1, y1] = cl(Math.max(0, t - 0.01));
+        const tx = x2 - x1, ty = y2 - y1, l = Math.hypot(tx, ty), nx = -ty / l, ny = tx / l, a = (i / nu) * TAU;
+        return [x + Math.cos(a) * r * nx, y + Math.cos(a) * r * ny, Math.sin(a) * r];
+      },
+      outward: (q) => { const t = Math.min(1, Math.max(0, q[0] / p.span + 0.5)), [x, y] = cl(t); return [q[0] - x, q[1] - y, q[2]]; },
+      pin: (i, j) => j === 0 || j === nv - 1,
+    };
+    const fab = new Fabric({ pieces: [tube], head: (y) => H + p.standpipe - y, ground: false });
+    this._H = H;
+    return { fab, marks: [[]] };
+  },
+  readout(fab, p) {
+    const H = Math.max(2.5, p.L), rise = H - fab.bounds().min[1];
+    return [['Arch span', m(p.span)], ['Arch rise (turned over)', m(rise)], ['Rise / span', `1 : ${(p.span / rise).toFixed(1)}`], ['Volume', `${(fab.volume([0, H, 0]) * 1000).toFixed(0)} L (≈)`]];
+  },
+});
+
+// I2 -------------------------------------------------------------------------
+// Invented: programmable curvature. Inflating a channel makes the sheet
+// narrower across it (flat width w becomes a round tube, so it shrinks by
+// about (1 − 2/π)·w). Laid out on purpose, that shrinkage curves a flat disc:
+// radial channels shorten the circumference (dome), ring channels shorten the
+// radius (saddle / wavy edge).
+recipe({
+  id: 'baromorph', family: 'I', name: 'Programmable curvature disc (experimental)',
+  summary: 'The shrinkage we kept fighting, used on purpose. Radial channels that widen outward shorten the rim more than the centre, so the flat disc has to rise into a dome. Ring channels shorten the radius instead, giving a saddle or wavy rim. Inflate with air to set the shape, then fill with concrete or use it as formwork. Experimental: the model shows the rim shrinkage, but without true plate bending it cannot yet show the sheet curling up into a dome.',
+  params: [
+    ['R', 'Disc radius', 0.5, 3, 0.05, 1.5, m],
+    ['n', 'Channels', 6, 36, 1, 18, int],
+    ['layout', 'Layout', 0, 1, 1, 0, (v) => (v ? 'rings → saddle' : 'radial → dome')],
+    ['share', 'Channel share at the rim', 0.2, 0.85, 0.01, 0.65, pct],
+    ['fill', 'Filled with', 0, 1, 1, 0, (v) => (v ? 'concrete' : 'air (shape test)')],
+  ],
+  steps: ['Cut 2 identical discs.', 'Draw the channels: radial wedges that widen towards the rim (dome) or concentric rings (saddle).', 'Glue the two discs together everywhere outside the channels. Connect the channels with a manifold at the centre or the rim.', 'Inflate with air: the flat disc curls into its programmed shape. Fill with concrete, or use the cushion as formwork for a sprayed shell.'],
+  build(p) {
+    const nu = 96, nv = 30;
+    const flat = (i, j) => { const r = (j / (nv - 1)) * p.R, a = (i / nu) * TAU; return [r * Math.cos(a), r * Math.sin(a)]; };
+    let inChannel;
+    if (!p.layout) {
+      // radial: the angular share grows linearly with radius (so the rim shrinks most)
+      inChannel = (i, j) => {
+        const r = j / (nv - 1), share = p.share * Math.min(1, r * 1.1), f = ((i / nu) * p.n) % 1;
+        return r > 0.12 && Math.abs(f - 0.5) < share / 2;
+      };
+    } else {
+      inChannel = (i, j) => { const r = j / (nv - 1), f = (r * p.n / 3) % 1; return r > 0.08 && r < 0.97 && Math.abs(f - 0.5) < p.share / 2; };
+    }
+    const mk = (s) => ({
+      name: s > 0 ? 'top disc' : 'bottom disc', nu, nv, wrap: true, flat, bend: 0, bendOk: (i, j) => !inChannel(((i % nu) + nu) % nu, j),
+      init: (i, j) => { const f = flat(i, j), r = j / (nv - 1); return [f[0], 0.003 + s * (inChannel(i, j) ? 0.002 : 0) + 0.01 * r * r, f[1]]; },
+      outward: () => [0, s, 0],
+      pin: (i, j) => j === 0,
+    });
+    const seams = [];
+    for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
+      if (j === 0 || j === nv - 1 || !inChannel(i, j)) seams.push([0, i, j, 1, i, j]);
+      if (j === 0 && i > 0) seams.push([0, 0, 0, 0, i, 0]); // centre point
+    }
+    const fab = new Fabric({ pieces: [mk(1), mk(-1)], seams, head: p.fill ? (y) => 0.8 - y : () => 0.4, ground: true });
+    // channel outlines for the cut pattern
+    const marks = [];
+    if (!p.layout) for (let k = 0; k < p.n; k++) {
+      const pts = [];
+      for (let jj = 3; jj < nv; jj++) { const r = jj / (nv - 1), sh = p.share * Math.min(1, r * 1.1), a = ((k + 0.5 - sh / 2) / p.n) * TAU; pts.push([r * p.R * Math.cos(a), r * p.R * Math.sin(a)]); }
+      for (let jj = nv - 1; jj >= 3; jj--) { const r = jj / (nv - 1), sh = p.share * Math.min(1, r * 1.1), a = ((k + 0.5 + sh / 2) / p.n) * TAU; pts.push([r * p.R * Math.cos(a), r * p.R * Math.sin(a)]); }
+      pts.push(pts[0]);
+      marks.push({ type: 'line', pts });
+    }
+    else for (let k = 0; k < p.n / 3; k++) for (const e of [-1, 1]) {
+      const rr = ((k + 0.5 + (e * p.share) / 2) / (p.n / 3)) * p.R, pts = [];
+      for (let t = 0; t <= 48; t++) pts.push([rr * Math.cos((t / 48) * TAU), rr * Math.sin((t / 48) * TAU)]);
+      marks.push({ type: 'line', pts });
+    }
+    return { fab, marks: [marks, marks] };
+  },
+  readout(fab, p) {
+    const b = fab.bounds();
+    const span = Math.max(b.max[0] - b.min[0], b.max[2] - b.min[2]);
+    return [['Rise', cm(b.max[1] - b.min[1])], ['Span after shaping', m(span)], ['Rise / span', `1 : ${(span / Math.max(1e-3, b.max[1] - b.min[1])).toFixed(1)}`], ['Rim shrinkage', pct(1 - span / (2 * p.R))]];
+  },
+});
+
+// I3 -------------------------------------------------------------------------
+// Invented: spacer fabric. Two layers linked by thousands of pile threads (a
+// 3D spacer textile): the threads set the thickness everywhere, so it fills
+// as a flat slab instead of pillows; graded pile length gives graded depth.
+recipe({
+  id: 'spacer', family: 'I', name: 'Spacer-fabric plank with graded depth',
+  summary: 'A 3D spacer textile: two faces linked by pile threads whose length sets the thickness everywhere. It fills as a flat plank instead of pillows. Grade the pile length along the plank and you get a cantilever that is deep at the root and thin at the tip, from one flat roll.',
+  params: [
+    ['L', 'Length', 1, 4, 0.05, 2.4, m],
+    ['W', 'Width', 0.3, 1.2, 0.01, 0.6, m],
+    ['t0', 'Thickness at root', 0.04, 0.4, 0.01, 0.2, cm],
+    ['t1', 'Thickness at tip', 0.02, 0.4, 0.01, 0.06, cm],
+    ['head', 'Standpipe height', 0.3, 2, 0.05, 1.0, m],
+  ],
+  steps: ['Order or knit a spacer fabric whose pile length is graded along its length (or stitch tether tapes between two layers on a fine grid).', 'Cut to size and seal the edges with a welded strip.', 'Lay flat on the ground and fill: the threads hold the faces parallel.'],
+  build(p) {
+    const nu = 61, nv = Math.max(9, Math.round(60 * p.W / p.L)) + 1;
+    const { pieces, seams } = twoLayer({ nu, nv, flat: rectFlat(p.L, p.W, nu, nv), bump: 0.003 });
+    const fab = new Fabric({ pieces, seams, head: (y) => p.head - y });
+    const cords = [];
+    for (let j = 2; j < nv - 2; j += 2) for (let i = 2; i < nu - 2; i += 2) {
+      const t = p.t0 + (p.t1 - p.t0) * (i / (nu - 1));
+      cords.push(fab.gid(0, i, j), fab.gid(1, i, j), t);
+    }
+    appendCords(fab, cords);
+    return { fab, marks: [[], []] };
+  },
+  readout(fab, p) {
+    const pc = fab.pieces[0], P = fab.pos, sep = (i) => { const j = Math.floor(pc.nv / 2), a = fab.gid(0, i, j), b = fab.gid(1, i, j); return Math.abs(P[a * 3 + 1] - P[b * 3 + 1]); };
+    return [['Thickness at root', cm(sep(4))], ['Thickness at tip', cm(sep(pc.nu - 5))], ['Volume', `${(fab.volume() * 1000).toFixed(0)} L`]];
+  },
+});
+
 // ------------------------------------------------------------ utilities
 
 function appendCords(fab, triples) {

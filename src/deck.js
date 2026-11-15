@@ -25,6 +25,8 @@ export const DECK_DEFAULTS = {
   anchored: true,     // bottom chords fixed in place (ground anchors / ties)
   heldEnds: true,     // deck ends held (no shortening)
   propped: true,      // top chords hung from a light rail / cable line during the pour
+  cushions: false,    // triangles sealed as air cushions instead of taped flat
+  airKPa: 20,         // cushion air pressure
   standpipe: 0.25,    // m, head above the top chords while pumping
   grid: 0.04,         // m, simulation resolution
 };
@@ -60,13 +62,16 @@ export class Deck {
       const vx = b[0] - a[0], vz = b[1] - a[1], t = Math.max(0, Math.min(1, ((q[0] - a[0]) * vx + (q[1] - a[1]) * vz) / (vx * vx + vz * vz)));
       return Math.hypot(q[0] - a[0] - t * vx, q[1] - a[1] - t * vz);
     };
-    const glued = (i, j) => { const q = flat(i, j); return segs.every(([a, b, w]) => dseg(q, a, b) > w / 2); };
+    const clr = (q) => Math.min(...segs.map(([a, b, w]) => dseg(q, a, b) - w / 2));
+    const rim = 0.035; // taped band that separates a concrete channel from an air cushion
+    const glued = p.cushions ? (i, j) => { const c = clr(flat(i, j)); return c > 0 && c < rim; } : (i, j) => clr(flat(i, j)) > 0;
+    const region = p.cushions ? (i, j) => (clr([((i + 0.5) / (nu - 1)) * 2 * S, ((j + 0.5) / (nv - 1) - 0.5) * Lm]) >= rim ? 1 : 0) : null;
 
     // folded geometry: u -> (z, y); web A rises, web B falls
     const fold = (u) => u <= S ? [u * Math.cos(th), u * Math.sin(th)] : [u * Math.cos(th), (2 * S - u) * Math.sin(th)];
     const nrm = (u) => u <= S ? [0, Math.cos(th), -Math.sin(th)] : [0, Math.cos(th), Math.sin(th)];
     const layer = (s) => ({
-      name: s > 0 ? 'outer sheet' : 'inner sheet', nu, nv, flat,
+      name: s > 0 ? 'outer sheet' : 'inner sheet', nu, nv, flat, region,
       init: (i, j) => {
         const [u, x] = flat(i, j), [z, y] = fold(u), n = nrm(u);
         const off = s * 0.004 * (glued(i, j) ? 0 : 1) + 0.005 * Math.sin((2.3 * Math.PI * x) / Lm + u);
@@ -78,7 +83,10 @@ export class Deck {
     for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) if (glued(i, j)) seams.push([0, i, j, 1, i, j]);
     const top = p.height + p.standpipe;
     this.top = top;
-    this.fab = new Fabric({ pieces: [layer(1), layer(-1)], seams, head: (y) => top - y });
+    const airHead = (p.airKPa * 1000) / (RHO * G);
+    this.fab = new Fabric({ pieces: [layer(1), layer(-1)], seams, head: (y, r) => (r === 1 ? airHead : top - y) });
+    if (p.cushions) this.fab.regionHeadMax = airHead;
+    this.isAir = p.cushions ? (i, j) => clr(flat(i, j)) >= rim : null;
 
     // symmetry planes
     const F = this.fab, edgeU = (i) => { const g = []; for (let j = 0; j < nv; j++) for (const pc of [0, 1]) g.push(F.gid(pc, i, j)); return g; };
@@ -121,10 +129,10 @@ export class Deck {
     for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
       const s = sep(i, j);
       // a flat width w that inflates to a round tube: ∫ separation du = d², area = π d² / 4
-      const w = i === 0 || i === nu - 1 ? 0.5 : 1;
+      const w = (i === 0 || i === nu - 1 ? 0.5 : 1) * (this.isAir && this.isAir(i, j) ? 0 : 1);
       V += s * du * dx * w * (Math.PI / 4);
       if (Math.abs(i - iTop) <= 1) topT = Math.max(topT, s);
-      else if (i > 0.15 * nu && i < 0.35 * nu) diagT = Math.max(diagT, s);
+      else if (i > 0.15 * nu && i < 0.35 * nu && !(this.isAir && this.isAir(i, j))) diagT = Math.max(diagT, s);
     }
     let ymax = 0;
     for (let i = 0; i < F.nCloth; i++) ymax = Math.max(ymax, P[i * 3 + 1]);

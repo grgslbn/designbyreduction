@@ -6,6 +6,7 @@ import { RHO, G } from './engine.js';
 const FAMILY = {
   A: 'A · Two layers sewn round the edge', B: 'B · Rolled tubes', C: 'C · Tubes shortened on one side',
   E: 'E · Joined sleeves', F: 'F · Hung single layers', H: 'H · Cloth against a rigid board',
+  I: 'I · Invented: new ways to use pressure',
 };
 
 let recipe = RECIPES[0], params = defaults(recipe), out, fab, paused = false, timer = null;
