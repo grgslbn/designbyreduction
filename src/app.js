@@ -47,6 +47,7 @@ const CONTROLS = {
     ['topRing', 'Top ring radius', 0.3, 1.2, 0.01, pct],
     ['bottomRing', 'Base ring radius', 0.3, 1.2, 0.01, pct],
     ['fill', 'Pour level', 0.1, 1, 0.01, pct],
+    ['fabricWeight', 'Fabric weight', 0, 1.5, 0.05, (v) => `${v.toFixed(2)} kg/m²`],
   ],
 };
 

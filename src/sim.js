@@ -40,6 +40,7 @@ export const DEFAULTS = {
   rings: [],          // [{at: 0..1 along length, r: fraction of natural radius}]
   // pour
   fill: 1.0,          // fill level as fraction of top ring height
+  fabricWeight: 0.4,  // kg/m2 of the textile (typical geotextile 0.2–0.6)
   guided: true,       // keep each row centred on the axis (sleeve over a rebar cage / guide)
   // discretisation
   nu: 72,             // nodes around
@@ -158,12 +159,18 @@ export class ColumnSim {
       const wEnd = Math.exp(-Math.min(t, 1 - t) / 0.06);
       const limp = Math.min(rEnd, rNat(j)) * 0.55 + bow * Math.sin(Math.PI * t);
       const r = j === 0 || j === nv - 1 ? rEnd : Math.min(rNat(j), wEnd * rEnd + (1 - wEnd) * limp);
+      // above the pour level the sleeve starts flat-laid (a limp, empty tube):
+      // an ellipse with the same circumference, ~1.55r wide and ~0.12r deep
+      const fy = this.topY * p.fill;
+      const dry = Math.min(1, Math.max(0, (y - fy) / (0.08 * this.topY))) * (1 - wEnd);
+      const rn = rNat(j);
+      const ax = r + dry * (rn * 1.55 - r), az = r + dry * (rn * 0.12 - r);
       for (let i = 0; i < nu; i++) {
         const a = (i / nu) * Math.PI * 2;
         const k = id(i, j) * 3;
-        this.pos[k] = Math.cos(a) * r;
+        this.pos[k] = Math.cos(a) * ax;
         this.pos[k + 1] = y;
-        this.pos[k + 2] = Math.sin(a) * r;
+        this.pos[k + 2] = Math.sin(a) * az;
         if (j === 0 || j === nv - 1) this.pinned[id(i, j)] = 1;
       }
     }
@@ -202,6 +209,11 @@ export class ColumnSim {
     // membrane; it only sets how fast we get there.
     const gain = 0.35 / Math.max(this.fillY(), 0.2);
     const damping = 0.9;
+    // Real fabric weight is ~1e-4 m of concrete head: negligible under pressure
+    // but the only load on the unfilled sleeve. It is amplified x40 (still under
+    // 1 cm of head) so the slack part drapes within an interactive time frame
+    // without measurably changing the filled shape.
+    const gw = (this.p.fabricWeight / RHO_CONCRETE) * 40 * gain / 6;
     let moved = 0;
 
     for (let s = 0; s < substeps; s++) {
@@ -212,6 +224,9 @@ export class ColumnSim {
         const vx = pos[c] - pos[a], vy = pos[c + 1] - pos[a + 1], vz = pos[c + 2] - pos[a + 2];
         // area-weighted normal (|cross| = 2 * area)
         let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+        // fabric self-weight, expressed (like the pressure) in metres of concrete head
+        const wgt = Math.sqrt(nx * nx + ny * ny + nz * nz) * gw;
+        force[a + 1] -= wgt; force[b + 1] -= wgt; force[c + 1] -= wgt;
         const h = this.head((pos[a + 1] + pos[b + 1] + pos[c + 1]) / 3);
         if (h <= 0) continue;
         const f = (h * gain) / 6; // /2 area, /3 nodes

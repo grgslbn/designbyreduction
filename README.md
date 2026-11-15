@@ -27,6 +27,7 @@ Open a preset directly with `?preset=Fluted`, `?preset=Mushroom`, and so on.
 | Tether stitches to a central cord (flutes, fig. 37) | Maximum radius along vertical stitch lines |
 | Band or cord sewn around the tube | Maximum radius on one row |
 | Sleeve guided over a rebar cage | Optional: each row is kept centred on the axis |
+| Fabric self-weight (kg/m²) | Downward load, increased ×40 so it settles quickly. That is still under 1 cm of concrete head, so the filled shape does not change, but the unfilled sleeve hangs. Above the pour level the sleeve starts out flat-laid. |
 
 The solver is position-based dynamics (Verlet integration and constraint projection).
 For an inextensible membrane, the equilibrium shape does not depend on the absolute
