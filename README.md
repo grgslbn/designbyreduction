@@ -16,7 +16,7 @@ Four modules:
   - E: Y-branch tree column
   - F: beam with moment-shaped depth, hanging shell (inverted)
   - H: wall panel on a casting board
-  - I (invented): hang, fill, flip funicular arch; spacer-fabric plank with graded depth; programmable curvature disc (experimental)
+  - I (invented): hang, fill, flip funicular arch; spacer-fabric plank with graded depth; programmable curvature disc
 - **V truss deck** (`deck.html`): one big double sheet taped with Warren truss webs and folded like a concertina along shared chords. Unfolded, the webs lean alternately, giving a space-truss deck (for example 8 × 20 × 1 m). One V module is simulated with symmetry planes standing in for its neighbours, then repeated over the footprint.
 
 ## Run
@@ -60,7 +60,7 @@ about 3–4 % local strain at the boundaries, which is similar to real geotextil
 - `src/membrane.js`: generic tension-only membrane, with builders for vertical and horizontal tubes, sag panels and bottle profiles
 - `src/system.js`: grid system layout, volumes, cut list (`GridSystem`)
 - `src/grid-app.js`: UI for the grid page
-- `src/engine.js`: general production-based fabric engine. Pieces (cut) and seams (sew, stitch, tack, glue) are merged with union-find; it also handles holes (cut out), cords (tethers), pins (rings, rails, boards), and hydrostatic or draped-weight loads
+- `src/engine.js`: general production-based fabric engine. Optional bending stiffness per piece: dihedral bending plus links that resist compression, applied to the stiff glued or taped areas only. Pieces (cut) and seams (sew, stitch, tack, glue) are merged with union-find; it also handles holes (cut out), cords (tethers), pins (rings, rails, boards), and hydrostatic or draped-weight loads
 - `src/recipes.js`: catalogue recipes, cut pattern SVG
 - `src/catalogue-app.js`: UI for the catalogue
 - `src/app.js`: UI, three.js view, 2D figures, exports
@@ -86,3 +86,9 @@ about 3–4 % local strain at the boundaries, which is similar to real geotextil
 - **The webs push apart** by about 37 % unless the bottom chords are tied or pegged.
 - **Shortening against round diagonals.** Free ends let the deck shorten by about 17 % (about 3.4 m over 20 m), and the diagonals inflate fully. Held ends keep the length but leave the diagonals flat (6 cm instead of about 13 cm). Cut the sheet longer, or accept flatter diagonals.
 - **Air cushions as bracing.** Sealing the triangles as air cushions, two fluids in one sheet, helps the V stand without rails: apex 0.22 m with no air, 0.52 m at 30 kPa, 0.84 m at 60 kPa. Above the concrete pressure, though, the cushions squash the concrete diagonals flat (2 cm), so there is a pressure window to find.
+
+## Findings with bending stiffness
+
+- **Glued and taped areas must resist being squeezed, not just bent.** With pull-only edges a glued area can shrink in its own plane at zero cost, and nothing buckles.
+- **The taped truss twists more** when its triangles are stiff: 7 cm instead of 3 cm out of plane, closer to the film prototype. Held between end boards it stays flat (1 cm).
+- **A radial-channel disc twists into a pinwheel instead of a dome.** The stiff wedges rotate like a camera shutter, with the inflated channels acting as hinges. Making a dome requires blocking that rotation.

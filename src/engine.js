@@ -64,7 +64,11 @@ export class Fabric {
       const fd = (i1, j1, i2, j2) => { const a = p.flat(i1, j1), b = p.flat(i2, j2); return Math.hypot(a[0] - b[0], a[1] - b[1]); };
       const isHole = (i, j) => p.hole && i >= 0 && j >= 0 && i < iMax && j < p.nv - 1 && p.hole(i, j);
       const solid = (i, j) => i >= 0 && j >= 0 && i < iMax && j < p.nv - 1 && !isHole(i, j);
+      // stiff (glued / laminated) areas resist compression too: two-sided links,
+      // marked with a negative weight
+      const stiff = (i1, j1, i2, j2) => p.bend && p.bendOk && p.bendOk(((i1 % p.nu) + p.nu) % p.nu, j1) && p.bendOk(((i2 % p.nu) + p.nu) % p.nu, j2);
       const add = (i1, j1, i2, j2, w, stretch = 1) => {
+        if (stiff(i1, j1, i2, j2)) { w = -w; stretch = 1; }
         // skip edges that lie entirely inside cut-out holes
         if (p.hole) {
           const horiz = j1 === j2, i = Math.min(i1, i2), j = Math.min(j1, j2);
@@ -81,18 +85,6 @@ export class Fabric {
           add(i, j, i + 1, j + 1, 0.5, 1.04);
           add(i + 1, j, i, j + 1, 0.5, 1.04);
         }
-      }
-    }
-    // optional bending stiffness: two-apart links that resist compression too
-    // (weight is stored negative to mark them as two-sided)
-    for (const p of pieces) {
-      if (!p.bend) continue;
-      const fd = (i1, j1, i2, j2) => { const a = p.flat(i1, j1), b = p.flat(i2, j2); return Math.hypot(a[0] - b[0], a[1] - b[1]); };
-      const iMax = p.wrap ? p.nu : p.nu - 2;
-      for (let j = 0; j < p.nv; j++) for (let i = 0; i < p.nu; i++) {
-        const ok = (a, b, c, d, e, f) => !p.bendOk || (p.bendOk(a, b) && p.bendOk(c, d) && p.bendOk(e, f));
-        if (i < iMax && ok(i, j, i + 1, j, i + 2, j)) { const a = map[p.lid(i, j)], b = map[p.lid(i + 2, j)]; if (a !== b) cons.push(a, b, fd(i, j, i + 2, j), -p.bend); }
-        if (j < p.nv - 2 && ok(i, j, i, j + 1, i, j + 2)) { const a = map[p.lid(i, j)], b = map[p.lid(i, j + 2)]; if (a !== b) cons.push(a, b, fd(i, j, i, j + 2), -p.bend); }
       }
     }
     for (const c of cords) cons.push(c[0], c[1], c[2], 1);
@@ -131,6 +123,32 @@ export class Fabric {
       }
     }
     this.tris = new Uint32Array(tris);
+
+    // ---- bending: dihedral constraints between neighbouring triangles
+    // (piece.bend = stiffness 0..1, piece.bendOk(i,j) = which nodes are stiff,
+    // e.g. only glued double-layer areas). Rest shape = the flat pattern.
+    const quads = [], bw = [];
+    for (const p of pieces) {
+      if (!p.bend) continue;
+      const iMax = p.wrap ? p.nu : p.nu - 1, ok = (i, j) => !p.bendOk || p.bendOk(((i % p.nu) + p.nu) % p.nu, j);
+      const edges = new Map();
+      const addTri = (x, y, z, okT) => {
+        for (const [e0, e1, o] of [[x, y, z], [y, z, x], [z, x, y]]) {
+          const key = e0 < e1 ? `${e0},${e1}` : `${e1},${e0}`;
+          const prev = edges.get(key);
+          if (prev) { if (prev.ok && okT) quads.push(e0, e1, prev.o, o); bw.push(p.bend); }
+          else edges.set(key, { o, ok: okT });
+        }
+      };
+      for (let j = 0; j < p.nv - 1; j++) for (let i = 0; i < iMax; i++) {
+        if (p.hole && p.hole(i, j)) continue;
+        const okC = ok(i, j) && ok(i + 1, j) && ok(i, j + 1) && ok(i + 1, j + 1);
+        const A = map[p.lid(i, j)], B = map[p.lid(i + 1, j)], C = map[p.lid(i, j + 1)], D = map[p.lid(i + 1, j + 1)];
+        addTri(A, C, B, okC); addTri(B, C, D, okC);
+      }
+    }
+    this.quads = new Uint32Array(quads);
+    this.bendK = bw.length ? Math.max(...bw) : 0;
     this.triRegion = new Uint8Array(regions);
     this.iter = 0;
     this.residual = Infinity;
@@ -170,6 +188,7 @@ export class Fabric {
           pos[k + d] = x + v + force[k + d];
         }
       }
+      if (this.quads.length) this.projectBending();
       for (let it = 0; it < this.iterations; it++) this.project();
     }
     let moved = 0, free = 0;
@@ -210,6 +229,48 @@ export class Fabric {
     if (this.ground) for (let i = 1; i < pos.length; i += 3) if (pos[i] < 0) pos[i] = 0;
   }
 
+  // Müller et al. 2006 dihedral bending constraint, rest angle = flat
+  projectBending() {
+    const { pos: P, pinned, quads } = this, k = this.bendK;
+    for (let q = 0; q < quads.length; q += 4) {
+      const i1 = quads[q] * 3, i2 = quads[q + 1] * 3, i3 = quads[q + 2] * 3, i4 = quads[q + 3] * 3;
+      const ax = P[i2] - P[i1], ay = P[i2 + 1] - P[i1 + 1], az = P[i2 + 2] - P[i1 + 2]; // p2
+      const bx = P[i3] - P[i1], by = P[i3 + 1] - P[i1 + 1], bz = P[i3 + 2] - P[i1 + 2]; // p3
+      const cx = P[i4] - P[i1], cy = P[i4 + 1] - P[i1 + 1], cz = P[i4 + 2] - P[i1 + 2]; // p4
+      let n1x = ay * bz - az * by, n1y = az * bx - ax * bz, n1z = ax * by - ay * bx;
+      let n2x = ay * cz - az * cy, n2y = az * cx - ax * cz, n2z = ax * cy - ay * cx;
+      const l1 = Math.sqrt(n1x * n1x + n1y * n1y + n1z * n1z), l2 = Math.sqrt(n2x * n2x + n2y * n2y + n2z * n2z);
+      if (l1 < 1e-12 || l2 < 1e-12) continue;
+      n1x /= l1; n1y /= l1; n1z /= l1; n2x /= l2; n2y /= l2; n2z /= l2;
+      const d = Math.max(-1, Math.min(1, n1x * n2x + n1y * n2y + n1z * n2z));
+      // flat rest: p3 and p4 on opposite sides -> d = -1 (angle π)
+      const ang = Math.acos(d) - Math.PI;
+      if (ang > -1e-4) continue;
+      // q3 = (p2×n2 + (n1×p2) d) / l1
+      const q3x = ((ay * n2z - az * n2y) + (n1y * az - n1z * ay) * d) / l1;
+      const q3y = ((az * n2x - ax * n2z) + (n1z * ax - n1x * az) * d) / l1;
+      const q3z = ((ax * n2y - ay * n2x) + (n1x * ay - n1y * ax) * d) / l1;
+      const q4x = ((ay * n1z - az * n1y) + (n2y * az - n2z * ay) * d) / l2;
+      const q4y = ((az * n1x - ax * n1z) + (n2z * ax - n2x * az) * d) / l2;
+      const q4z = ((ax * n1y - ay * n1x) + (n2x * ay - n2y * ax) * d) / l2;
+      const q2x = -((by * n2z - bz * n2y) + (n1y * bz - n1z * by) * d) / l1 - ((cy * n1z - cz * n1y) + (n2y * cz - n2z * cy) * d) / l2;
+      const q2y = -((bz * n2x - bx * n2z) + (n1z * bx - n1x * bz) * d) / l1 - ((cz * n1x - cx * n1z) + (n2z * cx - n2x * cz) * d) / l2;
+      const q2z = -((bx * n2y - by * n2x) + (n1x * by - n1y * bx) * d) / l1 - ((cx * n1y - cy * n1x) + (n2x * cy - n2y * cx) * d) / l2;
+      const q1x = -q2x - q3x - q4x, q1y = -q2y - q3y - q4y, q1z = -q2z - q3z - q4z;
+      const w1 = pinned[quads[q]] ? 0 : 1, w2 = pinned[quads[q + 1]] ? 0 : 1, w3 = pinned[quads[q + 2]] ? 0 : 1, w4 = pinned[quads[q + 3]] ? 0 : 1;
+      const den = w1 * (q1x * q1x + q1y * q1y + q1z * q1z) + w2 * (q2x * q2x + q2y * q2y + q2z * q2z) + w3 * (q3x * q3x + q3y * q3y + q3z * q3z) + w4 * (q4x * q4x + q4y * q4y + q4z * q4z);
+      if (den < 1e-9) continue;
+      let sc = (-Math.sqrt(1 - d * d) * ang / den) * k;
+      // limit the step so a single constraint can never move a node more than 5 mm
+      const maxQ = Math.sqrt(Math.max(q1x * q1x + q1y * q1y + q1z * q1z, q2x * q2x + q2y * q2y + q2z * q2z, q3x * q3x + q3y * q3y + q3z * q3z, q4x * q4x + q4y * q4y + q4z * q4z));
+      if (Math.abs(sc) * maxQ > 0.005) sc = Math.sign(sc) * 0.005 / maxQ;
+      P[i1] += sc * w1 * q1x; P[i1 + 1] += sc * w1 * q1y; P[i1 + 2] += sc * w1 * q1z;
+      P[i2] += sc * w2 * q2x; P[i2 + 1] += sc * w2 * q2y; P[i2 + 2] += sc * w2 * q2z;
+      P[i3] += sc * w3 * q3x; P[i3 + 1] += sc * w3 * q3y; P[i3 + 2] += sc * w3 * q3z;
+      P[i4] += sc * w4 * q4x; P[i4 + 1] += sc * w4 * q4y; P[i4 + 2] += sc * w4 * q4z;
+    }
+  }
+
   run(maxIter = 800, tol = 1e-5) {
     for (let i = 0; i < maxIter; i++) if (this.step() < tol) break;
     return this;
@@ -219,7 +280,7 @@ export class Fabric {
     const { pos, cA, cB, cL, cW } = this;
     let m = 0;
     for (let c = 0; c < cL.length; c++) {
-      if (cW[c] < 1 || cB[c] >= this.nCloth) continue;
+      if (Math.abs(cW[c]) < 1 || cB[c] >= this.nCloth) continue;
       const a = cA[c] * 3, b = cB[c] * 3;
       m = Math.max(m, Math.hypot(pos[b] - pos[a], pos[b + 1] - pos[a + 1], pos[b + 2] - pos[a + 2]) / cL[c] - 1);
     }

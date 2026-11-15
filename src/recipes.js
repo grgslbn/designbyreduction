@@ -213,6 +213,7 @@ recipe({
     ['cut', 'Triangles', 0, 1, 1, 0, (v) => (v ? 'glued and cut out' : 'taped flat')],
     ['fill', 'Filled with', 0, 1, 1, 0, (v) => (v ? 'concrete' : 'air (prototype)')],
     ['support', 'Support', 0, 2, 1, 2, (v) => SUPPORT[v]],
+    ['bend', 'Stiffness of taped areas', 0, 1, 0.05, 0.5, (v) => (v ? v.toFixed(2) : 'none (limp)')],
   ],
   steps: ['Cut 2 identical rectangles (length × depth).', 'Draw the truss: top and bottom chord bands along the long edges, end posts at the short edges, and zig-zag diagonal bands between them.', 'Tape or glue the two sheets together over every area outside the bands (the triangles). Optionally cut out the middle of each triangle, keeping a glued rim.', 'Seal the perimeter, leaving a filling sleeve at one end, and fill.'],
   build(p) {
@@ -243,7 +244,7 @@ recipe({
     const nrm = standing ? [0, 0, 1] : [0, 1, 0];
     const pin = p.support === 1 ? (i) => i === 0 || i === nu - 1 : p.support === 2 ? (i, j) => i <= 1 && Math.abs(j - (nv - 1) / 2) < nv * 0.15 : null;
     const layer = (s) => ({
-      name: s > 0 ? 'sheet A' : 'sheet B', nu, nv, flat, hole: holeFix,
+      name: s > 0 ? 'sheet A' : 'sheet B', nu, nv, flat, hole: holeFix, bend: p.bend, bendOk: (i, j) => glued(i, j),
       // a real sheet is never perfectly flat: a few mm of waviness lets buckling start
       init: (i, j) => { const f = flat(i, j); const imp = 0.006 * Math.sin((2.3 * Math.PI * f[0]) / p.L + 0.7) * Math.cos((1.1 * Math.PI * f[1]) / p.D); return W(f, imp + s * 0.002 * (glued(i, j) ? 0 : 1 + 0.3 * Math.sin(i * 1.1 + j))); },
       outward: () => nrm.map((v) => v * s),
@@ -650,14 +651,15 @@ recipe({
 // radial channels shorten the circumference (dome), ring channels shorten the
 // radius (saddle / wavy edge).
 recipe({
-  id: 'baromorph', family: 'I', name: 'Programmable curvature disc (experimental)',
-  summary: 'The shrinkage we kept fighting, used on purpose. Radial channels that widen outward shorten the rim more than the centre, so the flat disc has to rise into a dome. Ring channels shorten the radius instead, giving a saddle or wavy rim. Inflate with air to set the shape, then fill with concrete or use it as formwork. Experimental: the model shows the rim shrinkage, but without true plate bending it cannot yet show the sheet curling up into a dome.',
+  id: 'baromorph', family: 'I', name: 'Programmable curvature disc',
+  summary: 'The shrinkage we kept fighting, used on purpose. Radial channels that widen outward shorten the rim more than the centre, so the flat disc has to rise into a dome. Ring channels shorten the radius instead, giving a saddle or wavy rim. Inflate with air to set the shape, then fill with concrete or use it as formwork. Finding: with stiff glued wedges, the radial layout does not dome. It twists into a pinwheel: the wedges rotate around the centre like a camera shutter, with the channels acting as hinges. A dome needs that rotation blocked, which is the next experiment.',
   params: [
     ['R', 'Disc radius', 0.5, 3, 0.05, 1.5, m],
     ['n', 'Channels', 6, 36, 1, 18, int],
     ['layout', 'Layout', 0, 1, 1, 0, (v) => (v ? 'rings → saddle' : 'radial → dome')],
     ['share', 'Channel share at the rim', 0.2, 0.85, 0.01, 0.65, pct],
     ['fill', 'Filled with', 0, 1, 1, 0, (v) => (v ? 'concrete' : 'air (shape test)')],
+    ['bend', 'Bending stiffness of glued areas', 0, 1, 0.05, 0.5, (v) => (v ? v.toFixed(2) : 'none')],
   ],
   steps: ['Cut 2 identical discs.', 'Draw the channels: radial wedges that widen towards the rim (dome) or concentric rings (saddle).', 'Glue the two discs together everywhere outside the channels. Connect the channels with a manifold at the centre or the rim.', 'Inflate with air: the flat disc curls into its programmed shape. Fill with concrete, or use the cushion as formwork for a sprayed shell.'],
   build(p) {
@@ -674,7 +676,7 @@ recipe({
       inChannel = (i, j) => { const r = j / (nv - 1), f = (r * p.n / 3) % 1; return r > 0.08 && r < 0.97 && Math.abs(f - 0.5) < p.share / 2; };
     }
     const mk = (s) => ({
-      name: s > 0 ? 'top disc' : 'bottom disc', nu, nv, wrap: true, flat, bend: 0, bendOk: (i, j) => !inChannel(((i % nu) + nu) % nu, j),
+      name: s > 0 ? 'top disc' : 'bottom disc', nu, nv, wrap: true, flat, bend: p.bend, bendOk: (i, j) => !inChannel(((i % nu) + nu) % nu, j),
       init: (i, j) => { const f = flat(i, j), r = j / (nv - 1); return [f[0], 0.003 + s * (inChannel(i, j) ? 0.002 : 0) + 0.01 * r * r, f[1]]; },
       outward: () => [0, s, 0],
       pin: (i, j) => j === 0,
