@@ -181,6 +181,15 @@ export class Fabric {
       pos[a] += dx * k * wa; pos[a + 1] += dy * k * wa; pos[a + 2] += dz * k * wa;
       pos[b] -= dx * k * wb; pos[b + 1] -= dy * k * wb; pos[b + 2] -= dz * k * wb;
     }
+    // symmetry / guide planes: {nodes, axis (0|1|2), value, slide}
+    // fixed: every node on the plane keeps coordinate = value
+    // slide: the nodes stay coplanar but the plane may translate (value = their mean)
+    if (this.planes) for (const pl of this.planes) {
+      const a = pl.axis;
+      let v = pl.value;
+      if (pl.slide) { v = 0; for (const g of pl.nodes) v += pos[g * 3 + a]; v /= pl.nodes.length; pl.current = v; }
+      for (const g of pl.nodes) pos[g * 3 + a] = v;
+    }
     if (this.ground) for (let i = 1; i < pos.length; i += 3) if (pos[i] < 0) pos[i] = 0;
   }
 
@@ -213,6 +222,19 @@ export class Fabric {
       V += ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx);
     }
     return Math.abs(V) / 6;
+  }
+
+  // triangles for display: where two layers are glued they coincide exactly,
+  // so draw each such triangle once (volume() still uses the full list)
+  renderTris() {
+    const seen = new Set(), out = [], t = this.tris;
+    for (let k = 0; k < t.length; k += 3) {
+      const key = [t[k], t[k + 1], t[k + 2]].sort((a, b) => a - b).join(',');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(t[k], t[k + 1], t[k + 2]);
+    }
+    return new Uint32Array(out);
   }
 
   bounds() {

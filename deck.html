@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Truss Deck — Design by Reduction</title>
+<link rel="stylesheet" href="./src/style.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <nav class="tabs"><a href="./">Single column</a><a href="./grid.html">Grid system (fig. 1–8)</a><a href="./catalogue.html">Shape catalogue</a><a class="on" href="./deck.html">V truss deck</a></nav>
+    <h1>Concertina V truss deck</h1>
+    <p class="sub">One big double sheet, taped with Warren truss webs side by side and folded like a concertina along the chords. Unfolded, the webs lean alternately left and right, and neighbouring webs share their fold chords. Pumped full, it becomes a space truss.</p>
+
+    <h2>Deck</h2>
+    <div id="g-deck"></div>
+
+    <h2>Truss webs</h2>
+    <div id="g-web"></div>
+
+    <h2>During the pour</h2>
+    <div class="check"><input type="checkbox" id="propped"><label for="propped">Top chords hung from rails / cables</label></div>
+    <div class="check"><input type="checkbox" id="anchored"><label for="anchored">Bottom chords anchored (ties / pegs)</label></div>
+    <div class="check"><input type="checkbox" id="heldEnds"><label for="heldEnds">Deck ends held (no shortening)</label></div>
+    <div id="g-pour"></div>
+
+    <div class="btns">
+      <button class="primary" id="pour">Pour again</button>
+      <button id="pause">Pause</button>
+    </div>
+  </aside>
+
+  <main>
+    <div id="view"></div>
+    <div id="hud"></div>
+    <div id="legend"><span id="lg-a"></span><div class="bar" id="lg-bar"></div><span id="lg-b"></span></div>
+  </main>
+
+  <aside class="right">
+    <h2>Display</h2>
+    <select id="colour">
+      <option value="pressure">Hydrostatic pressure</option>
+      <option value="concrete">Cured concrete</option>
+    </select>
+    <div class="check"><input type="checkbox" id="all" checked><label for="all">Show whole deck (else one module)</label></div>
+
+    <h2>Result</h2>
+    <dl class="stats" id="stats"></dl>
+
+    <h2>Findings</h2>
+    <div class="note" id="findings"></div>
+
+    <h2>Cut &amp; fold sheet</h2>
+    <div class="fig" id="pattern"></div>
+    <p class="note">The whole sheet at 1:100. Tape everything outside the black channel outlines. Red dashed: mountain folds (top chords). Blue dotted: valley folds (bottom chords).</p>
+
+    <h2>Model notes</h2>
+    <p class="note">One V module (two webs, a whole number of bays) is simulated. Its cut edges are symmetry planes standing in for the neighbours, and it is repeated over the footprint. The concrete weight acts through the hydrostatic pressure. The cloth has no bending stiffness.</p>
+
+    <h2>Export</h2>
+    <div class="btns">
+      <button id="exp-svg">Sheet .svg</button>
+      <button id="exp-obj">Module .obj</button>
+      <button id="exp-json">Params .json</button>
+    </div>
+  </aside>
+</div>
+<script type="module" src="./src/deck-app.js"></script>
+</body>
+</html>

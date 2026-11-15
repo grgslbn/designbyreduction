@@ -5,7 +5,7 @@ An interactive simulator for the formwork principle in Belgian patent **BE102481
 textile pattern that is cut, folded and stitched. Concrete pumped into it under pressure
 inflates it, and the hardened concrete keeps that shape as a structural element.
 
-Three modules:
+Four modules:
 
 - **Single column** (`index.html`): one column from a flat pattern, with flutes, bands, a capital, and so on.
 - **Grid system** (`grid.html`): the rain-water buffer tank from figs. 1–8, with bottle-shaped columns 17 and necks 19, base tubes 21 linking the feet, an optional perimeter wall of cylinders 20, and soffit panels 27 that sag under the top slab 3. Each part type is simulated once and repeated across the layout. Contact between neighbouring parts is not modelled yet.
@@ -16,6 +16,7 @@ Three modules:
   - E: Y-branch tree column
   - F: beam with moment-shaped depth, hanging shell (inverted)
   - H: wall panel on a casting board
+- **V truss deck** (`deck.html`): one big double sheet taped with Warren truss webs and folded like a concertina along shared chords. Unfolded, the webs lean alternately, giving a space-truss deck (for example 8 × 20 × 1 m). One V module is simulated with symmetry planes standing in for its neighbours, then repeated over the footprint.
 
 ## Run
 
@@ -77,3 +78,9 @@ about 3–4 % local strain at the boundaries, which is similar to real geotextil
 - **A panel cast on a board needs fullness.** If the back layer is held flat, a front layer cut to the same size cannot bulge at all. Cut the front larger (about 10–15 %) and ease it in at the stitch lines.
 - **Flanges inflate too.** In a ribbed slab, the wide channels between ribs swell unless they get their own extra stitch lines.
 - **Darted tube curvature** follows κ ≈ k / (2r(1 − k/2)), where k is the share of cloth taken out on the inner side and r the tube radius. The simulation agrees within a few %.
+
+## Findings from the V truss deck
+
+- **A concrete-filled V cannot stand by itself during the pour.** At about 0.25 m of pump head the top chords slump to about 0.26 m (from 1 m). It stands at 0.82 m with 6 m of head, and at 0.98 m when the top chords hang from rails or cables. Wet concrete in a leaning bag needs a pressure at the top well above its own height.
+- **The webs push apart** by about 37 % unless the bottom chords are tied or pegged.
+- **Shortening against round diagonals.** Free ends let the deck shorten by about 17 % (about 3.4 m over 20 m), and the diagonals inflate fully. Held ends keep the length but leave the diagonals flat (6 cm instead of about 13 cm). Cut the sheet longer, or accept flatter diagonals.

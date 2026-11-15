@@ -91,7 +91,7 @@ function rebuild() {
   const pos = new THREE.BufferAttribute(fab.pos, 3);
   geom.setAttribute('position', pos);
   geom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(fab.pos.length), 3));
-  geom.setIndex(new THREE.BufferAttribute(fab.tris, 1));
+  geom.setIndex(new THREE.BufferAttribute(fab.renderTris(), 1));
   const idx = [];
   for (let c = 0; c < fab.cL.length; c++) if (fab.cW[c] >= 1 && fab.cB[c] < fab.nCloth) idx.push(fab.cA[c], fab.cB[c]);
   wire.geometry.setAttribute('position', pos);
