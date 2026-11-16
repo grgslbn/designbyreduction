@@ -1,8 +1,8 @@
 import { Deck } from '../src/deck.js';
 let fail = 0;
-for (const v of [{}, { propped: false }]) {
+for (const v of [{}, { propped: false }, { lift: 0.25 }]) {
   const d = new Deck(v);
-  for (let i = 0; i < 1200; i++) if (d.step() < 1e-5) break;
+  for (let i = 0; i < 3000; i++) { d.step(); if (d.residual < 1e-5) break; }
   const s = d.stats();
   const ok = s.volume > 0 && s.strain < 0.06 && (v.propped === false ? s.apex < 0.9 : s.apex > 0.9);
   if (!ok) fail++;

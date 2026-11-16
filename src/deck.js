@@ -26,6 +26,8 @@ export const DECK_DEFAULTS = {
   heldEnds: true,     // deck ends held (no shortening)
   propped: true,      // top chords hung from a light rail / cable line during the pour
   cushions: false,    // triangles sealed as air cushions instead of taped flat
+  bend: 0,            // bending stiffness of the taped (glued) areas, 0 = limp
+  lift: 0,            // staged pour: height of each lift in m (0 = one pour)
   airKPa: 20,         // cushion air pressure
   standpipe: 0.25,    // m, head above the top chords while pumping
   grid: 0.04,         // m, simulation resolution
@@ -71,7 +73,7 @@ export class Deck {
     const fold = (u) => u <= S ? [u * Math.cos(th), u * Math.sin(th)] : [u * Math.cos(th), (2 * S - u) * Math.sin(th)];
     const nrm = (u) => u <= S ? [0, Math.cos(th), -Math.sin(th)] : [0, Math.cos(th), Math.sin(th)];
     const layer = (s) => ({
-      name: s > 0 ? 'outer sheet' : 'inner sheet', nu, nv, flat, region,
+      name: s > 0 ? 'outer sheet' : 'inner sheet', nu, nv, flat, region, bend: p.bend, bendOk: glued,
       init: (i, j) => {
         const [u, x] = flat(i, j), [z, y] = fold(u), n = nrm(u);
         const off = s * 0.004 * (glued(i, j) ? 0 : 1) + 0.005 * Math.sin((2.3 * Math.PI * x) / Lm + u);
@@ -82,9 +84,15 @@ export class Deck {
     const seams = [];
     for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) if (glued(i, j)) seams.push([0, i, j, 1, i, j]);
     const top = p.height + p.standpipe;
+    // staged pour: fresh concrete fills up to `fillLevel`; below `setLevel` it has set
+    this.stages = p.lift > 0 ? Math.ceil(p.height / p.lift) : 1;
+    this.stage = 1;
+    this.setLevel = -1;
+    this.fillLevel = p.lift > 0 ? Math.min(p.lift, p.height) : p.height;
+    const fresh = (y) => (y < this.setLevel ? 0 : Math.max(0, this.fillLevel + p.standpipe - y));
     this.top = top;
     const airHead = (p.airKPa * 1000) / (RHO * G);
-    this.fab = new Fabric({ pieces: [layer(1), layer(-1)], seams, head: (y, r) => (r === 1 ? airHead : top - y) });
+    this.fab = new Fabric({ pieces: [layer(1), layer(-1)], seams, head: (y, r) => (r === 1 ? airHead : fresh(y)) });
     if (p.cushions) this.fab.regionHeadMax = airHead;
     this.isAir = p.cushions ? (i, j) => clr(flat(i, j)) >= rim : null;
 
@@ -100,8 +108,13 @@ export class Deck {
     // top-chord support: the two edges of each top-chord channel are held at
     // their height (a rail or tensioned cable taped along the fold)
     if (p.propped) {
+      // rails hold height and position across the deck, but the cloth can
+      // slide along them (so the deck can still shorten)
       const iTop = (nu - 1) / 2, off = Math.round(p.chord / 2 / p.grid);
-      for (let j = 0; j < nv; j++) for (const pc of [0, 1]) for (const d of [-off, off]) F.pinned[F.gid(pc, Math.round(iTop + d), j)] = 1;
+      for (let j = 0; j < nv; j++) for (const pc of [0, 1]) for (const d of [-off, off]) {
+        const g = F.gid(pc, Math.round(iTop + d), j);
+        F.planes.push({ nodes: [g], axis: 1, value: F.pos[g * 3 + 1] }, { nodes: [g], axis: 2, value: F.pos[g * 3 + 2] });
+      }
     }
     this.layout();
   }
@@ -116,8 +129,20 @@ export class Deck {
     }
   }
 
-  step() { return this.fab.step(); }
-  get residual() { return this.fab.residual; }
+  step() {
+    const r = this.fab.step();
+    if (r < 1e-5 && this.stage < this.stages) {
+      // this lift has settled: let it set (freeze it) and pour the next one
+      const F = this.fab;
+      this.setLevel = this.fillLevel;
+      for (let i = 0; i < F.nCloth; i++) if (F.pos[i * 3 + 1] < this.setLevel) F.pinned[i] = 1;
+      this.stage++;
+      this.fillLevel = Math.min(this.p.height, this.fillLevel + this.p.lift);
+      F.residual = Infinity;
+    }
+    return this.fab.residual;
+  }
+  get residual() { return this.stage < this.stages ? Infinity : this.fab.residual; }
   get iter() { return this.fab.iter; }
 
   stats() {
@@ -149,6 +174,8 @@ export class Deck {
       apex: ymax, topTube: topT, diagTube: diagT,
       fabric: 2 * sheetArea, sheetW: 2 * this.S * this.nV, sheetL: this.nL * this.Lm,
       basePressure: (RHO * G * this.top) / 1000,
+      peakPressure: (RHO * G * ((this.p.lift > 0 ? Math.min(this.p.lift, this.p.height) : this.p.height) + this.p.standpipe)) / 1000,
+      stage: this.stage, stages: this.stages,
       strain: F.maxStrain(),
     };
   }

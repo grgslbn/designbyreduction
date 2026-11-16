@@ -20,6 +20,8 @@ const CONTROLS = {
   'g-pour': [
     ['standpipe', 'Pump head above top chords', 0, 6, 0.05, m],
     ['airKPa', 'Cushion air pressure', 5, 100, 1, (v) => `${v} kPa`],
+    ['lift', 'Staged pour: lift height', 0, 1, 0.05, (v) => (v ? `${v.toFixed(2)} m per lift` : 'one pour')],
+    ['bend', 'Stiffness of taped areas', 0, 1, 0.05, (v) => (v ? v.toFixed(2) : 'none (limp)')],
   ],
 };
 const inputs = {};
@@ -167,7 +169,8 @@ function update(force = false) {
     <dt>Mass</dt><dd>${s.mass.toFixed(0)} t</dd>
     <dt>Fabric (2 layers)</dt><dd>${s.fabric.toFixed(0)} m²</dd>
     <dt>Flat sheet</dt><dd>${s.sheetW.toFixed(1)} × ${s.sheetL.toFixed(1)} m</dd>
-    <dt>Pressure at ground</dt><dd>${s.basePressure.toFixed(0)} kPa</dd>
+    <dt>Peak pressure on cloth</dt><dd>${s.peakPressure.toFixed(0)} kPa${s.stages > 1 ? ` (one pour: ${s.basePressure.toFixed(0)})` : ''}</dd>
+    ${s.stages > 1 ? `<dt>Lift</dt><dd>${s.stage} of ${s.stages}</dd>` : ''}
     <dt>Max fabric strain</dt><dd>${pct(s.strain)}</dd>`;
   const f = [];
   if (s.apex < state.height * 0.9) f.push(`<p><b>The V is slumping</b> (top chords at ${s.apex.toFixed(2)} m). Wet concrete in a leaning bag needs a pressure at the top well above its own height to stand. Hang the top chords from rails or cables, raise the pump head, or pour in stages.</p>`);
@@ -176,6 +179,9 @@ function update(force = false) {
   if (state.heldEnds && s.diagTube < state.diag * 0.5) f.push(`<p><b>Held ends keep the diagonals flat</b> (${(s.diagTube * 100).toFixed(0)} cm instead of about ${(state.diag * 2 / Math.PI * 100).toFixed(0)} cm round). A channel needs to shorten its surroundings to inflate fully.</p>`);
   if (state.cushions && s.diagTube < 0.04) f.push(`<p><b>The air cushions are squashing the concrete diagonals</b> (${(s.diagTube * 100).toFixed(0)} cm). The air pressure is higher than the concrete pressure. Lower it, or widen the taped band between cushion and channel.</p>`);
   if (state.cushions && s.apex >= state.height * 0.9 && !state.propped) f.push('<p><b>The air cushions brace the V</b>: it stands without rails.</p>');
+  if (s.stages > 1 && s.apex < state.height * 0.9) f.push('<p><b>A staged pour does not stop the slump.</b> The empty cloth above each lift has no pressure to hold it up, and each lift then sets in the slumped shape. Lifts help only when something holds the cloth up.</p>');
+  if (s.stages > 1 && s.apex >= state.height * 0.9) f.push(`<p><b>The staged pour cuts the pressure on the cloth</b> to ${s.peakPressure.toFixed(0)} kPa per lift, instead of ${s.basePressure.toFixed(0)} kPa in one pour. That allows a lighter fabric and weaker seams.</p>`);
+  if (s.stages > 1 && !state.heldEnds && s.strain > 0.06) f.push(`<p><b>Set lifts fight the fresh ones.</b> Each lift shortens as it fills, but the set lift below has already shortened and holds it back (fabric strain ${(s.strain * 100).toFixed(0)} %). Hold the ends during a staged pour, or cut the upper part of the sheet with extra length.</p>`);
   if (!f.length) f.push('<p>Stable: the V holds its shape with these settings.</p>');
   document.getElementById('findings').innerHTML = f.join('');
   const done = deck.residual < 1e-5;
@@ -184,7 +190,7 @@ function update(force = false) {
 
 function loop() {
   requestAnimationFrame(loop);
-  if (deck && !paused && !(deck.residual < 1e-5) && deck.iter < 1200) {
+  if (deck && !paused && !(deck.residual < 1e-5) && deck.iter < 3000) {
     deck.step();
     update();
     if (deck.iter % 5 === 0) paint();

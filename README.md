@@ -92,3 +92,11 @@ about 3–4 % local strain at the boundaries, which is similar to real geotextil
 - **Glued and taped areas must resist being squeezed, not just bent.** With pull-only edges a glued area can shrink in its own plane at zero cost, and nothing buckles.
 - **The taped truss twists more** when its triangles are stiff: 7 cm instead of 3 cm out of plane, closer to the film prototype. Held between end boards it stays flat (1 cm).
 - **A radial-channel disc twists into a pinwheel instead of a dome.** The stiff wedges rotate like a camera shutter, with the inflated channels acting as hinges. Making a dome requires blocking that rotation.
+
+## Findings: bending and staged pours on the V deck
+
+- **Stiff taped triangles barely brace the V.** At stiffness 0.5 the apex goes from 0.22 to 0.25 m. Taped film is far too weak against wet concrete.
+- **A staged pour does not stop the slump.** The empty cloth above each lift has nothing holding it up, and each lift sets in the slumped shape (apex 0.20 m).
+- **With rails, lifts are useful.** The deck stands (0.98 m), and 0.25 m lifts cut the peak pressure on the cloth from about 29 to about 12 kPa, which allows a lighter fabric and weaker seams. That matters most for tall elements.
+- **Set lifts fight fresh ones when the ends are free.** Each lift shortens as it fills, but the set lift below holds it back (strain about 12 %). Hold the ends during a staged pour.
+- **Conclusion:** the V deck needs its top chords supported during the pour (rails, cables, or a top pressure of several metres of head). Bending stiffness and lifts don't replace that.
